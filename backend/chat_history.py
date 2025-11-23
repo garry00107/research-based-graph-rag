@@ -3,14 +3,18 @@ from datetime import datetime
 import json
 from cache import cache
 
+import uuid
+
 class Message:
-    def __init__(self, role: str, content: str, timestamp: Optional[datetime] = None):
+    def __init__(self, role: str, content: str, timestamp: Optional[datetime] = None, id: str = None):
+        self.id = id or str(uuid.uuid4())
         self.role = role  # 'user' or 'assistant'
         self.content = content
         self.timestamp = timestamp or datetime.utcnow()
     
     def to_dict(self):
         return {
+            'id': self.id,
             'role': self.role,
             'content': self.content,
             'timestamp': self.timestamp.isoformat()
@@ -21,7 +25,8 @@ class Message:
         return cls(
             role=data['role'],
             content=data['content'],
-            timestamp=datetime.fromisoformat(data['timestamp'])
+            timestamp=datetime.fromisoformat(data['timestamp']),
+            id=data.get('id')
         )
 
 class ChatHistoryManager:
@@ -87,6 +92,37 @@ class ChatHistoryManager:
         
         return "\n".join(context_parts)
     
+    def add_feedback(self, conversation_id: str, message_id: str, feedback: str) -> bool:
+        """Add feedback (up/down) to a specific message"""
+        if not self.cache.enabled:
+            return False
+        
+        try:
+            key = self._get_conversation_key(conversation_id)
+            history = self.get_history(conversation_id)
+            
+            updated_history = []
+            found = False
+            for msg in history:
+                if msg.get("id") == message_id:
+                    msg["feedback"] = feedback
+                    found = True
+                updated_history.append(msg)
+            
+            if found:
+                # Save updated history
+                self.cache.client.setex(
+                    key,
+                    86400,  # 24 hours
+                    json.dumps(updated_history)
+                )
+                return True
+            else:
+                return False # Message not found
+        except Exception as e:
+            print(f"Error adding feedback to chat history: {e}")
+            return False
+        
     def clear_history(self, conversation_id: str):
         """Clear conversation history"""
         if not self.cache.enabled:
