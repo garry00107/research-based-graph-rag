@@ -62,6 +62,10 @@ app.add_middleware(
 # It might take time if loading large index.
 rag = RAGEngine()
 
+# Initialize Paper Recommender
+from paper_recommender import PaperRecommender
+paper_recommender = PaperRecommender(rag)
+
 class IngestRequest(BaseModel):
     arxiv_id: str
 
@@ -533,6 +537,34 @@ def export_bibtex(arxiv_id: str):
         return {"arxiv_id": arxiv_id, "bibtex": bibtex}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Recommendation endpoints
+@app.get("/recommendations/query")
+def get_query_recommendations(query: str, top_k: int = 5):
+    """Get paper recommendations based on a query"""
+    try:
+        recommendations = paper_recommender.recommend_from_query(query, top_k=top_k)
+        return {"query": query, "recommendations": recommendations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/recommendations/similar/{arxiv_id}")
+def get_similar_papers(arxiv_id: str, top_k: int = 5):
+    """Get papers similar to a given paper"""
+    try:
+        recommendations = paper_recommender.recommend_similar_papers(arxiv_id, top_k=top_k)
+        return {"arxiv_id": arxiv_id, "recommendations": recommendations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/recommendations/citations/{arxiv_id}")
+def get_citation_based_recommendations(arxiv_id: str, top_k: int = 5):
+    """Get recommendations based on citation context"""
+    try:
+        recommendations = paper_recommender.recommend_from_citations(arxiv_id, top_k=top_k)
+        return {"arxiv_id": arxiv_id, "recommendations": recommendations}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
