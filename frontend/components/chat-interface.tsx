@@ -39,7 +39,7 @@ export function ChatInterface() {
         <div className="flex flex-col h-[600px] w-full max-w-4xl mx-auto border rounded-xl overflow-hidden bg-background shadow-lg">
             <div className="bg-muted p-4 border-b">
                 <h2 className="font-semibold flex items-center gap-2">
-                    <Bot className="w-5 h-5" /> Graph RAG Agent
+                    <Bot className="w-5 h-5" /> Research Assistant
                 </h2>
             </div>
 

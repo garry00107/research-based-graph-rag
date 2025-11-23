@@ -9,10 +9,10 @@ export default function Home() {
       </div>
       <div className="w-full max-w-4xl mb-8 text-center">
         <h1 className="text-4xl font-bold tracking-tight mb-2 bg-gradient-to-r from-green-500 to-emerald-700 bg-clip-text text-transparent">
-          NVIDIA Graph RAG
+          Research Paper Assistant
         </h1>
         <p className="text-muted-foreground">
-          Ask questions about research papers with graph-based retrieval.
+          AI-powered research assistant using graph-based retrieval for ArXiv papers.
         </p>
       </div>
       <ChatInterface />
