@@ -5,7 +5,7 @@ import { ChatHistory } from "@/components/chat-history";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex flex-col items-center p-4 pt-10">
       <div className="absolute top-4 right-4 flex gap-2">
         <ChatHistory />
         <PapersLibrary />
@@ -19,7 +19,9 @@ export default function Home() {
           AI-powered research assistant using graph-based retrieval for ArXiv papers.
         </p>
       </div>
-      <ChatInterface />
+      <div className="w-full max-w-7xl flex-1">
+        <ChatInterface />
+      </div>
     </div>
   );
 }

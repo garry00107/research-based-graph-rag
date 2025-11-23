@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Library, Search, Trash2, RefreshCw, BookOpen } from 'lucide-react';
+import { Library, Search, Trash2, RefreshCw, BookOpen, FileDown, Copy } from 'lucide-react';
 
 export function PapersLibrary() {
     const [papers, setPapers] = useState<IngestedPaper[]>([]);
@@ -59,6 +59,26 @@ export function PapersLibrary() {
         }
     };
 
+    const handleCopyBibtex = async (arxivId: string) => {
+        try {
+            const res = await api.getBibtex(arxivId);
+            await navigator.clipboard.writeText(res.data.bibtex);
+            alert('BibTeX copied to clipboard!');
+        } catch (error) {
+            console.error('Error copying BibTeX:', error);
+            alert('Failed to copy BibTeX');
+        }
+    };
+
+    const handleExportAllBibtex = async () => {
+        try {
+            await api.exportAllBibtex();
+        } catch (error) {
+            console.error('Error exporting BibTeX:', error);
+            alert('Failed to export BibTeX');
+        }
+    };
+
     return (
         <Sheet>
             <SheetTrigger asChild>
@@ -68,10 +88,21 @@ export function PapersLibrary() {
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-2xl">
                 <SheetHeader>
-                    <SheetTitle className="flex items-center gap-2">
-                        <BookOpen className="w-5 h-5" />
-                        Papers Library
-                    </SheetTitle>
+                    <div className="flex items-center justify-between">
+                        <SheetTitle className="flex items-center gap-2">
+                            <BookOpen className="w-5 h-5" />
+                            Papers Library
+                        </SheetTitle>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExportAllBibtex}
+                            disabled={papers.length === 0}
+                        >
+                            <FileDown className="w-4 h-4 mr-2" />
+                            Export BibTeX
+                        </Button>
+                    </div>
                 </SheetHeader>
 
                 <div className="py-6 space-y-4">
@@ -151,6 +182,15 @@ export function PapersLibrary() {
                                                 <span>•</span>
                                                 <span>{new Date(paper.ingested_at).toLocaleDateString()}</span>
                                             </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-2 w-full"
+                                                onClick={() => handleCopyBibtex(paper.arxiv_id)}
+                                            >
+                                                <Copy className="w-3 h-3 mr-2" />
+                                                Copy BibTeX
+                                            </Button>
                                         </CardContent>
                                     </Card>
                                 ))}
