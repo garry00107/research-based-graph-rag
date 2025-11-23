@@ -4,64 +4,66 @@ import { useState } from 'react';
 import { api, Paper } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export function AdminPanel() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [category, setCategory] = useState('all');
+    const [year, setYear] = useState('');
     const [searchResults, setSearchResults] = useState<Paper[]>([]);
-    const [selectedPapers, setSelectedPapers] = useState<Set<string>>(new Set());
-    const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [ingestStatus, setIngestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [msg, setMsg] = useState('');
+    const [selectedPapers, setSelectedPapers] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [ingesting, setIngesting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [ingestSuccessMsg, setIngestSuccessMsg] = useState<string | null>(null);
+    const [msg, setMsg] = useState(''); // Keeping for backward compatibility if needed, or remove if unused
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
-        setSearchStatus('loading');
-        setMsg('');
-        setSearchResults([]);
-        setSelectedPapers(new Set());
 
+        setLoading(true);
+        setError(null);
+        setIngestSuccessMsg(null); // Clear ingest success message on new search
+        setSearchResults([]); // Clear previous search results
+        setSelectedPapers([]); // Clear selected papers
         try {
-            const res = await api.search(searchQuery);
+            const res = await api.search(searchQuery, 10, category, year);
             setSearchResults(res.data.results);
-            setSearchStatus('success');
-            setMsg(`Found ${res.data.results.length} papers`);
         } catch (error: any) {
-            setSearchStatus('error');
-            const errorMsg = error.response?.data?.detail || error.message || 'Search failed.';
-            setMsg(errorMsg);
+            console.error('Error searching:', error);
+            setError(error.response?.data?.detail || 'Failed to search papers');
         }
+        setLoading(false);
     };
 
     const togglePaper = (arxivId: string) => {
-        const newSelected = new Set(selectedPapers);
-        if (newSelected.has(arxivId)) {
-            newSelected.delete(arxivId);
-        } else {
-            newSelected.add(arxivId);
-        }
-        setSelectedPapers(newSelected);
+        setSelectedPapers(prev => {
+            if (prev.includes(arxivId)) {
+                return prev.filter(id => id !== arxivId);
+            } else {
+                return [...prev, arxivId];
+            }
+        });
     };
 
     const handleIngest = async () => {
-        if (selectedPapers.size === 0) return;
-        setIngestStatus('loading');
-        setMsg('');
+        if (selectedPapers.length === 0) return;
 
+        setIngesting(true);
+        setError(null);
+        setIngestSuccessMsg(null);
         try {
-            const arxivIds = Array.from(selectedPapers);
-            await api.ingestBatch(arxivIds);
-            setIngestStatus('success');
-            setMsg(`Successfully ingested ${arxivIds.length} paper(s)`);
-            setSelectedPapers(new Set());
+            await api.ingestBatch(selectedPapers);
+            setIngestSuccessMsg(`Successfully ingested ${selectedPapers.length} paper(s)!`);
+            setSelectedPapers([]);
         } catch (error: any) {
-            setIngestStatus('error');
-            const errorMsg = error.response?.data?.detail || error.message || 'Ingestion failed.';
-            setMsg(errorMsg);
+            console.error('Error ingesting:', error);
+            setError(error.response?.data?.detail || 'Failed to ingest papers');
         }
+        setIngesting(false);
     };
 
     return (
@@ -71,36 +73,60 @@ export function AdminPanel() {
                     <Settings className="w-4 h-4" />
                 </Button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-2xl">
+            <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
                 <SheetHeader>
                     <SheetTitle>Admin Panel</SheetTitle>
+                    <SheetDescription>
+                        Search and ingest research papers from ArXiv.
+                    </SheetDescription>
                 </SheetHeader>
+
                 <div className="py-6 space-y-6">
-                    <div className="space-y-2">
+                    {/* Search Section */}
+                    <div className="space-y-4">
                         <h3 className="text-sm font-medium">Search Papers</h3>
                         <div className="flex gap-2">
                             <Input
-                                placeholder="Search by title or keywords..."
+                                placeholder="Search by title, author, or keyword..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             />
-                            <Button onClick={handleSearch} disabled={searchStatus === 'loading'}>
-                                {searchStatus === 'loading' ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Search className="w-4 h-4" />
-                                )}
+                            <Button onClick={handleSearch} disabled={loading}>
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                             </Button>
                         </div>
-                        {searchStatus === 'success' && (
-                            <div className="text-xs text-green-500 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" /> {msg}
+
+                        {/* Filters */}
+                        <div className="flex gap-2">
+                            <select
+                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                            >
+                                <option value="all">All Categories</option>
+                                <option value="cs.AI">Artificial Intelligence</option>
+                                <option value="cs.CL">Computation and Language</option>
+                                <option value="cs.CV">Computer Vision</option>
+                                <option value="cs.LG">Machine Learning</option>
+                                <option value="cs.SE">Software Engineering</option>
+                            </select>
+                            <Input
+                                placeholder="Year (e.g. 2024)"
+                                className="w-32"
+                                value={year}
+                                onChange={(e) => setYear(e.target.value)}
+                            />
+                        </div>
+
+                        {error && (
+                            <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> {error}
                             </div>
                         )}
-                        {searchStatus === 'error' && (
-                            <div className="text-xs text-red-500 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" /> {msg}
+                        {!error && !loading && searchResults.length > 0 && (
+                            <div className="text-xs text-green-500 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" /> Found {searchResults.length} papers
                             </div>
                         )}
                     </div>
@@ -109,30 +135,25 @@ export function AdminPanel() {
                         <>
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-medium">Results ({selectedPapers.size} selected)</h3>
+                                    <h3 className="text-sm font-medium">Results ({selectedPapers.length} selected)</h3>
                                     <Button
                                         onClick={handleIngest}
-                                        disabled={selectedPapers.size === 0 || ingestStatus === 'loading'}
+                                        disabled={selectedPapers.length === 0 || ingesting}
                                         size="sm"
                                     >
-                                        {ingestStatus === 'loading' ? (
+                                        {ingesting ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                                 Ingesting...
                                             </>
                                         ) : (
-                                            `Ingest Selected (${selectedPapers.size})`
+                                            `Ingest Selected (${selectedPapers.length})`
                                         )}
                                     </Button>
                                 </div>
-                                {ingestStatus === 'success' && (
+                                {ingestSuccessMsg && (
                                     <div className="text-xs text-green-500 flex items-center gap-1">
-                                        <CheckCircle className="w-3 h-3" /> {msg}
-                                    </div>
-                                )}
-                                {ingestStatus === 'error' && (
-                                    <div className="text-xs text-red-500 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" /> {msg}
+                                        <CheckCircle className="w-3 h-3" /> {ingestSuccessMsg}
                                     </div>
                                 )}
                             </div>
@@ -142,9 +163,9 @@ export function AdminPanel() {
                                     {searchResults.map((paper) => (
                                         <Card
                                             key={paper.arxiv_id}
-                                            className={`cursor-pointer transition-colors ${selectedPapers.has(paper.arxiv_id)
-                                                    ? 'border-primary bg-primary/5'
-                                                    : 'hover:border-primary/50'
+                                            className={`cursor-pointer transition-colors ${selectedPapers.includes(paper.arxiv_id)
+                                                ? 'border-primary bg-primary/5'
+                                                : 'hover:border-primary/50'
                                                 }`}
                                             onClick={() => togglePaper(paper.arxiv_id)}
                                         >
@@ -152,7 +173,7 @@ export function AdminPanel() {
                                                 <div className="flex items-start gap-2">
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedPapers.has(paper.arxiv_id)}
+                                                        checked={selectedPapers.includes(paper.arxiv_id)}
                                                         onChange={() => togglePaper(paper.arxiv_id)}
                                                         className="mt-1"
                                                         onClick={(e) => e.stopPropagation()}
@@ -175,6 +196,15 @@ export function AdminPanel() {
                                                 <p className="text-xs text-muted-foreground mt-2">
                                                     ArXiv ID: {paper.arxiv_id}
                                                 </p>
+                                                {paper.categories && paper.categories.length > 0 && (
+                                                    <div className="flex gap-1 mt-2 flex-wrap">
+                                                        {paper.categories.slice(0, 3).map(cat => (
+                                                            <span key={cat} className="px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-medium">
+                                                                {cat}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </CardContent>
                                         </Card>
                                     ))}

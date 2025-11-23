@@ -1,0 +1,60 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: research-assistant-backend
+    ports:
+      - "8002:8002"
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+      - REDIS_URL=redis://redis:6379
+      - REDIS_ENABLED=false
+      - HOST=0.0.0.0
+      - PORT=8002
+      - BATCH_SIZE=32
+      - MAX_WORKERS=4
+    volumes:
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/data:/app/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - research-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: research-assistant-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - research-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: research-assistant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - research-net
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:
+
+
+networks:
+  research-net:
+    driver: bridge

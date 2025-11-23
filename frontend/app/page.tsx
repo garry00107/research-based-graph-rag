@@ -1,10 +1,14 @@
 import { ChatInterface } from '@/components/chat-interface';
 import { AdminPanel } from '@/components/admin-panel';
+import { PapersLibrary } from "@/components/papers-library";
+import { ChatHistory } from "@/components/chat-history";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex flex-col items-center justify-center p-4">
+      <div className="absolute top-4 right-4 flex gap-2">
+        <ChatHistory />
+        <PapersLibrary />
         <AdminPanel />
       </div>
       <div className="w-full max-w-4xl mb-8 text-center">
@@ -16,6 +20,6 @@ export default function Home() {
         </p>
       </div>
       <ChatInterface />
-    </main>
+    </div>
   );
 }

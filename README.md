@@ -1,6 +1,6 @@
-# Research Paper Assistant
+# Research Paper Assistant 🤖📚
 
-AI-powered research assistant using graph-based retrieval for ArXiv papers. Built with FastAPI, LlamaIndex, NVIDIA models, and Next.js.
+An AI-powered research assistant that helps you find, read, and understand ArXiv research papers. Built with **FastAPI**, **LlamaIndex**, **NVIDIA NIM**, and **Next.js**.
 
 ##  Features
 
@@ -26,50 +26,47 @@ AI-powered research assistant using graph-based retrieval for ArXiv papers. Buil
 
 ##  Tech Stack
 
-**Backend:**
-- FastAPI
-- LlamaIndex
-- NVIDIA NIM (LLM + Embeddings)
-- ArXiv API
+- **Backend**: FastAPI, Celery, Redis
+- **AI Engine**: LlamaIndex, NVIDIA NIM (Llama 3.2 3B, NV-EmbedQA)
+- **Vector Store**: ChromaDB
+- **Frontend**: Next.js 14, TailwindCSS, Shadcn/UI
+- **Infrastructure**: Docker Compose
 
-**Frontend:**
-- Next.js 14 (App Router)
-- TypeScript
-- TailwindCSS
-- Shadcn/UI
-- Zustand (state management)
+## 🏁 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- NVIDIA API Key (from [build.nvidia.com](https://build.nvidia.com))
 
 ##  Prerequisites
 
-- Python 3.10+
-- Node.js 18+
-- NVIDIA NIM API Key ([Get one here](https://build.nvidia.com))
-
-##  Setup
-
-### 1. Backend
-
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-**Set your API Key:**
-```bash
+# Create .env file
 cp .env.example .env
 # Edit .env and add your NVIDIA_API_KEY
 ```
 
-**Start the server:**
+##  Setup
+
+## 👨‍💻 Local Development
+
+### Backend
 ```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Start Redis (Required)
+redis-server
+
+# Start Celery Worker (for async ingestion)
+./start-celery.sh
+
+# Start Backend
 python main.py
 ```
-Server runs on `http://127.0.0.1:8002`
 
-### 2. Frontend
-
+### Frontend
 ```bash
 cd frontend
 npm install
@@ -88,33 +85,30 @@ Frontend runs on `http://localhost:3000`
 5. Click **"Ingest Selected"** to add them to the knowledge base
 6. Wait for ingestion to complete (~30s per paper)
 
-### Asking Questions
+## 📖 Usage Guide
 
-1. Type your question in the chat input
-2. Press Enter or click Send
-3. View the AI's response with citations
-4. Click on citation cards to see source text and relevance scores
+1. **Search Papers**: Click the ⚙️ icon to open the Admin Panel. Search for papers (e.g., "RAG agents").
+2. **Ingest**: Select papers and click "Ingest Selected".
+3. **Chat**: Ask questions like "What are the key findings of these papers?".
+4. **Library**: Click the 📚 icon to view your ingested papers.
+5. **History**: Click the 🕐 icon to view past conversations.
 
 ##  Project Structure
 
 ```
-.
 ├── backend/
-│   ├── main.py              # FastAPI app with endpoints
-│   ├── rag_engine.py        # RAG logic with LlamaIndex
-│   ├── ingestion.py         # ArXiv search & PDF processing
-│   ├── requirements.txt     # Python dependencies
-│   └── .env                 # API keys (not in git)
+│   ├── main.py           # FastAPI endpoints
+│   ├── rag_engine.py     # RAG logic with ChromaDB
+│   ├── ingestion.py      # ArXiv search & PDF processing
+│   ├── cache.py          # Redis caching layer
+│   ├── celery_app.py     # Async task configuration
+│   ├── papers_library.py # Library management
+│   └── chat_history.py   # Conversation memory
 ├── frontend/
-│   ├── app/                 # Next.js pages
-│   ├── components/          # React components
-│   │   ├── chat-interface.tsx
-│   │   └── admin-panel.tsx
-│   ├── lib/
-│   │   ├── api.ts          # Backend API client
-│   │   └── store.ts        # Zustand state
-│   └── package.json
-└── README.md
+│   ├── app/              # Next.js pages
+│   ├── components/       # React components (Chat, Library, History)
+│   └── lib/api.ts        # API client
+└── docker-compose.yml    # Deployment config
 ```
 
 ##  API Endpoints
