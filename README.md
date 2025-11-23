@@ -2,29 +2,29 @@
 
 An AI-powered research assistant that helps you find, read, and understand ArXiv research papers. Built with **FastAPI**, **LlamaIndex**, **NVIDIA NIM**, and **Next.js**.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
-![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)
-![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
+##  Features
 
-## 🚀 Features
+###  Smart Paper Search
+- Search ArXiv papers by title or keywords
+- View results with titles, authors, and abstracts
+- Multi-select papers for batch ingestion
 
-### Core Capabilities
-- **🔍 Smart Paper Search**: Search ArXiv by title, author, or keywords.
-- **🎯 Advanced Filters**: Filter search results by category (e.g., AI, CV) and publication year.
-- **📥 Batch Ingestion**: Select multiple papers and ingest them simultaneously.
-- **⚡ Async Processing**: Non-blocking ingestion using Celery background workers.
-- **💬 AI Chat**: Ask questions about the papers with citation-backed answers.
-- **🌊 Streaming Responses**: Real-time token-by-token responses for a smooth experience.
+###  AI-Powered Q&A
+- Ask questions about ingested papers
+- Get answers with source citations
+- Powered by NVIDIA's LLM (`meta/llama-3.2-3b-instruct`)
 
-### Advanced Features
-- **💾 Vector Database**: Uses **ChromaDB** for fast, persistent vector storage.
-- **🚀 Redis Caching**: Caches embeddings and chat history for performance.
-- **📚 Papers Library**: View, manage, and search your ingested papers.
-- **🕐 Chat History**: Persists conversation history for context-aware answers.
-- **🐳 Docker Support**: Full stack deployment with a single command.
+###  Vector-Based Retrieval
+- Fast semantic search using embeddings (`nvidia/nv-embedqa-e5-v5`)
+- VectorStoreIndex for efficient document retrieval
+- Persistent storage for ingested papers
 
-## 🛠️ Tech Stack
+###  Modern UI
+- Clean chat interface with streaming responses
+- Citation cards showing source text and relevance scores
+- Responsive design with TailwindCSS + Shadcn/UI
+
+##  Tech Stack
 
 - **Backend**: FastAPI, Celery, Redis
 - **AI Engine**: LlamaIndex, NVIDIA NIM (Llama 3.2 3B, NV-EmbedQA)
@@ -38,21 +38,14 @@ An AI-powered research assistant that helps you find, read, and understand ArXiv
 - Docker & Docker Compose
 - NVIDIA API Key (from [build.nvidia.com](https://build.nvidia.com))
 
-### 1. Clone & Configure
-```bash
-git clone https://github.com/yourusername/research-paper-assistant.git
-cd research-paper-assistant
+##  Prerequisites
 
 # Create .env file
 cp .env.example .env
 # Edit .env and add your NVIDIA_API_KEY
 ```
 
-### 2. Run with Docker
-```bash
-docker-compose up --build
-```
-Access the app at **http://localhost:3000**
+##  Setup
 
 ## 👨‍💻 Local Development
 
@@ -79,6 +72,18 @@ cd frontend
 npm install
 npm run dev
 ```
+Frontend runs on `http://localhost:3000`
+
+##  Usage
+
+### Ingesting Papers
+
+1. Open the frontend at `http://localhost:3000`
+2. Click the **Settings** icon (⚙️) to open the Admin Panel
+3. **Search** for papers by entering keywords (e.g., "transformer", "attention mechanism")
+4. **Select** one or more papers by clicking on the cards
+5. Click **"Ingest Selected"** to add them to the knowledge base
+6. Wait for ingestion to complete (~30s per paper)
 
 ## 📖 Usage Guide
 
@@ -88,7 +93,7 @@ npm run dev
 4. **Library**: Click the 📚 icon to view your ingested papers.
 5. **History**: Click the 🕐 icon to view past conversations.
 
-## 🏗️ Project Structure
+##  Project Structure
 
 ```
 ├── backend/
@@ -106,8 +111,73 @@ npm run dev
 └── docker-compose.yml    # Deployment config
 ```
 
-## 🤝 Contributing
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+##  API Endpoints
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/search` | POST | Search ArXiv papers by query |
+| `/ingest` | POST | Ingest a single paper by ArXiv ID |
+| `/ingest-batch` | POST | Ingest multiple papers |
+| `/chat` | POST | Ask a question about ingested papers |
+
+## � Example Queries
+
+After ingesting "Attention is All You Need" (ArXiv ID: `1706.03762`):
+
+- "What is the transformer architecture?"
+- "Explain the attention mechanism"
+- "What are the key innovations in this paper?"
+- "How does multi-head attention work?"
+
+##  Troubleshooting
+
+**Ingestion is slow:**
+- This is normal! Each paper requires multiple LLM/embedding API calls
+- Expect ~30-60 seconds per paper depending on length
+- See [Performance Notes](#-performance-notes) below
+
+**Port already in use:**
+```bash
+# Backend (port 8002)
+lsof -ti:8002 | xargs kill -9
+
+# Frontend (port 3000)
+lsof -ti:3000 | xargs kill -9
+```
+
+**NVIDIA API errors:**
+- Verify your API key in `backend/.env`
+- Check you have access to the models at [build.nvidia.com](https://build.nvidia.com)
+
+##  Performance Notes
+
+**Why is ingestion slow?**
+- PDF parsing: ~1-2s
+- Embedding generation: ~0.1-0.3s per chunk (network-bound)
+- LLM calls for graph extraction: ~0.5-1s per page
+- NVIDIA API rate limiting causes retries
+
+**Future improvements:**
+- Add Chroma/FAISS for faster vector storage
+- Implement async ingestion queue (Celery/RQ)
+- Batch embedding calls to reduce latency
+- Cache downloaded PDFs
+
+##  Contributing
+
+1. Create a feature branch: `git checkout -b feature/your-feature`
+2. Make your changes
+3. Commit: `git commit -m "feat: your feature"`
+4. Push: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+##  License
+
+MIT
+
+##  Acknowledgments
+
+- [LlamaIndex](https://www.llamaindex.ai/) for the RAG framework
+- [NVIDIA NIM](https://build.nvidia.com) for LLM and embedding models
+- [ArXiv](https://arxiv.org/) for the research paper API
