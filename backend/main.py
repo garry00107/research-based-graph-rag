@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ingestion import download_paper, load_documents
+from ingestion import download_paper, load_documents, search_papers
 from rag_engine import RAGEngine
 import os
 
@@ -24,12 +24,29 @@ rag = RAGEngine()
 class IngestRequest(BaseModel):
     arxiv_id: str
 
+class BatchIngestRequest(BaseModel):
+    arxiv_ids: list[str]
+
+class SearchRequest(BaseModel):
+    query: str
+    max_results: int = 10
+
 class ChatRequest(BaseModel):
     message: str
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.post("/search")
+def search(request: SearchRequest):
+    try:
+        print(f"Searching for: {request.query}")
+        results = search_papers(request.query, request.max_results)
+        return {"status": "success", "results": results}
+    except Exception as e:
+        print(f"Error searching: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ingest")
 def ingest_paper(request: IngestRequest):
@@ -41,6 +58,23 @@ def ingest_paper(request: IngestRequest):
         return {"status": "success", "message": f"Ingested {request.arxiv_id}", "pages": len(documents)}
     except Exception as e:
         print(f"Error ingesting: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ingest-batch")
+def ingest_batch(request: BatchIngestRequest):
+    try:
+        results = []
+        total_pages = 0
+        for arxiv_id in request.arxiv_ids:
+            print(f"Ingesting {arxiv_id}...")
+            path = download_paper(arxiv_id)
+            documents = load_documents(path)
+            rag.add_documents(documents)
+            total_pages += len(documents)
+            results.append({"arxiv_id": arxiv_id, "pages": len(documents)})
+        return {"status": "success", "message": f"Ingested {len(request.arxiv_ids)} papers", "total_pages": total_pages, "results": results}
+    except Exception as e:
+        print(f"Error batch ingesting: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")

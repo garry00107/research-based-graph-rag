@@ -40,6 +40,31 @@ def load_documents(file_path: str) -> List[Document]:
     documents = reader.load_data()
     return documents
 
+def search_papers(query: str, max_results: int = 10):
+    """
+    Search ArXiv for papers matching the query.
+    Returns a list of paper metadata.
+    """
+    client = arxiv.Client()
+    search = arxiv.Search(
+        query=query,
+        max_results=max_results,
+        sort_by=arxiv.SortCriterion.Relevance
+    )
+    
+    results = []
+    for paper in client.results(search):
+        results.append({
+            "arxiv_id": paper.entry_id.split('/')[-1],
+            "title": paper.title,
+            "authors": [author.name for author in paper.authors],
+            "summary": paper.summary,
+            "published": paper.published.isoformat(),
+            "pdf_url": paper.pdf_url
+        })
+    
+    return results
+
 if __name__ == "__main__":
     # Test
     pid = "1706.03762" # Attention is All You Need
