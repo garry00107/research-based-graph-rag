@@ -2,29 +2,29 @@
 
 AI-powered research assistant using graph-based retrieval for ArXiv papers. Built with FastAPI, LlamaIndex, NVIDIA models, and Next.js.
 
-## ✨ Features
+##  Features
 
-### 🔍 Smart Paper Search
+###  Smart Paper Search
 - Search ArXiv papers by title or keywords
 - View results with titles, authors, and abstracts
 - Multi-select papers for batch ingestion
 
-### 🤖 AI-Powered Q&A
+###  AI-Powered Q&A
 - Ask questions about ingested papers
 - Get answers with source citations
 - Powered by NVIDIA's LLM (`meta/llama-3.2-3b-instruct`)
 
-### 📊 Vector-Based Retrieval
+###  Vector-Based Retrieval
 - Fast semantic search using embeddings (`nvidia/nv-embedqa-e5-v5`)
 - VectorStoreIndex for efficient document retrieval
 - Persistent storage for ingested papers
 
-### 💬 Modern UI
+###  Modern UI
 - Clean chat interface with streaming responses
 - Citation cards showing source text and relevance scores
 - Responsive design with TailwindCSS + Shadcn/UI
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 **Backend:**
 - FastAPI
@@ -39,13 +39,13 @@ AI-powered research assistant using graph-based retrieval for ArXiv papers. Buil
 - Shadcn/UI
 - Zustand (state management)
 
-## 📋 Prerequisites
+##  Prerequisites
 
 - Python 3.10+
 - Node.js 18+
 - NVIDIA NIM API Key ([Get one here](https://build.nvidia.com))
 
-## 🚀 Setup
+##  Setup
 
 ### 1. Backend
 
@@ -77,7 +77,7 @@ npm run dev
 ```
 Frontend runs on `http://localhost:3000`
 
-## 📖 Usage
+##  Usage
 
 ### Ingesting Papers
 
@@ -95,7 +95,7 @@ Frontend runs on `http://localhost:3000`
 3. View the AI's response with citations
 4. Click on citation cards to see source text and relevance scores
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 .
@@ -117,7 +117,7 @@ Frontend runs on `http://localhost:3000`
 └── README.md
 ```
 
-## 🔑 API Endpoints
+##  API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -127,7 +127,7 @@ Frontend runs on `http://localhost:3000`
 | `/ingest-batch` | POST | Ingest multiple papers |
 | `/chat` | POST | Ask a question about ingested papers |
 
-## 🎯 Example Queries
+## � Example Queries
 
 After ingesting "Attention is All You Need" (ArXiv ID: `1706.03762`):
 
@@ -136,7 +136,7 @@ After ingesting "Attention is All You Need" (ArXiv ID: `1706.03762`):
 - "What are the key innovations in this paper?"
 - "How does multi-head attention work?"
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 **Ingestion is slow:**
 - This is normal! Each paper requires multiple LLM/embedding API calls
@@ -156,7 +156,7 @@ lsof -ti:3000 | xargs kill -9
 - Verify your API key in `backend/.env`
 - Check you have access to the models at [build.nvidia.com](https://build.nvidia.com)
 
-## ⚡ Performance Notes
+##  Performance Notes
 
 **Why is ingestion slow?**
 - PDF parsing: ~1-2s
@@ -170,7 +170,7 @@ lsof -ti:3000 | xargs kill -9
 - Batch embedding calls to reduce latency
 - Cache downloaded PDFs
 
-## 🤝 Contributing
+##  Contributing
 
 1. Create a feature branch: `git checkout -b feature/your-feature`
 2. Make your changes
@@ -178,11 +178,11 @@ lsof -ti:3000 | xargs kill -9
 4. Push: `git push origin feature/your-feature`
 5. Open a Pull Request
 
-## 📝 License
+##  License
 
 MIT
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - [LlamaIndex](https://www.llamaindex.ai/) for the RAG framework
 - [NVIDIA NIM](https://build.nvidia.com) for LLM and embedding models
