@@ -104,8 +104,8 @@ class RAGEngine:
         
         print(f"✓ Index now contains {self.collection.count()} document chunks")
 
-    def query(self, query_text: str, top_k: int = 5):
-        """Query the index with caching"""
+    def query(self, query_text: str, top_k: int = 5, use_enhancement: bool = True):
+        """Query the index with optional query enhancement"""
         if self.index is None or self.collection.count() == 0:
             return "Index is empty. Please ingest some papers first."
         
@@ -114,12 +114,69 @@ class RAGEngine:
         if cached_result:
             print("✓ Cache hit for query")
             return cached_result
-            
-        query_engine = self.index.as_query_engine(
-            similarity_top_k=top_k,
-            response_mode="compact"
-        )
-        response = query_engine.query(query_text)
+        
+        # Apply query enhancement if enabled
+        if use_enhancement:
+            try:
+                from query_enhancer import query_enhancer
+                
+                # Rewrite query for better retrieval
+                enhanced_query = query_enhancer.rewrite_query(query_text)
+                print(f"✓ Enhanced query: {enhanced_query}")
+                
+                # Generate multiple query variations
+                query_variations = query_enhancer.generate_multi_queries(enhanced_query, num_queries=2)
+                print(f"✓ Generated {len(query_variations)} query variations")
+                
+                # Query with all variations and combine results
+                all_nodes = []
+                for q in query_variations:
+                    query_engine = self.index.as_query_engine(
+                        similarity_top_k=top_k,
+                        response_mode="compact"
+                    )
+                    temp_response = query_engine.query(q)
+                    if hasattr(temp_response, 'source_nodes'):
+                        all_nodes.extend(temp_response.source_nodes)
+                
+                # Deduplicate nodes by content and re-rank by score
+                seen_content = set()
+                unique_nodes = []
+                for node in all_nodes:
+                    content_hash = hash(node.node.get_text()[:100])
+                    if content_hash not in seen_content:
+                        seen_content.add(content_hash)
+                        unique_nodes.append(node)
+                
+                # Sort by score and take top_k
+                unique_nodes.sort(key=lambda x: x.score, reverse=True)
+                top_nodes = unique_nodes[:top_k]
+                
+                # Generate final response using enhanced query
+                query_engine = self.index.as_query_engine(
+                    similarity_top_k=top_k,
+                    response_mode="compact"
+                )
+                response = query_engine.query(enhanced_query)
+                
+                # Replace source nodes with our curated top nodes
+                if hasattr(response, 'source_nodes'):
+                    response.source_nodes = top_nodes
+                
+            except Exception as e:
+                print(f"Query enhancement failed: {e}, falling back to standard query")
+                query_engine = self.index.as_query_engine(
+                    similarity_top_k=top_k,
+                    response_mode="compact"
+                )
+                response = query_engine.query(query_text)
+        else:
+            # Standard query without enhancement
+            query_engine = self.index.as_query_engine(
+                similarity_top_k=top_k,
+                response_mode="compact"
+            )
+            response = query_engine.query(query_text)
         
         # Cache the result
         self.cache.set_query_result(query_text, response)

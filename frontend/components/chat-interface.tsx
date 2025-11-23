@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Bot, User, FileText, ThumbsUp, ThumbsDown, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { Recommendations } from './recommendations';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -246,6 +247,16 @@ export function ChatInterface() {
                                             >
                                                 <ThumbsDown className="w-3 h-3" />
                                             </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Show recommendations for assistant messages */}
+                                    {msg.role === 'assistant' && msg.content && idx === messages.length - 1 && (
+                                        <div className="mt-4 pt-4 border-t border-border/50">
+                                            <Recommendations
+                                                query={messages[idx - 1]?.content}
+                                                type="query"
+                                            />
                                         </div>
                                     )}
                                 </div>
