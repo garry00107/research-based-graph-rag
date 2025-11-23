@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+llama-index
+llama-index-llms-nvidia
+llama-index-embeddings-nvidia
+arxiv
+networkx
+python-dotenv
+pypdf

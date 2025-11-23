@@ -1,0 +1,15 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Data
+storage/
+data/
+*.pdf
+
+# Logs
+*.log
