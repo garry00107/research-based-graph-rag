@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     batch_size: int = 32
     max_workers: int = 4
     
+    # Sheet RAG Settings
+    sheet_rag_enabled: bool = True
+    sheet_rag_layers: list = ["sentence", "paragraph", "section", "summary"]
+    cross_validation_threshold: float = 0.5
+    cross_validation_min_layers: int = 2
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Bot, User, FileText, ThumbsUp, ThumbsDown, Download } from 'lucide-react';
+import { Send, Bot, User, FileText, ThumbsUp, ThumbsDown, Download, Layers, Zap } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import { Recommendations } from './recommendations';
 
@@ -16,12 +19,19 @@ interface Message {
     citations?: Citation[];
     id?: string;
     feedback?: 'up' | 'down';
+    engine?: 'standard' | 'sheet_rag';
+    validation?: {
+        count?: number;
+        avg_confidence?: number;
+        avg_layer_coverage?: number;
+    };
 }
 
 export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [useSheetRAG, setUseSheetRAG] = useState(true); // Default to Sheet RAG
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -41,11 +51,16 @@ export function ChatInterface() {
         setLoading(true);
 
         try {
-            // Use streaming endpoint
-            const response = await fetch('/api/chat-stream', {
+            // Use streaming endpoint - choose based on toggle
+            const endpoint = useSheetRAG ? '/api/chat-v2-stream' : '/api/chat-stream';
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMessage.content })
+                body: JSON.stringify({
+                    message: userMessage.content,
+                    use_cross_validation: true,
+                    top_k: 5
+                })
             });
 
             if (!response.ok) throw new Error('Failed to send message');
@@ -57,7 +72,8 @@ export function ChatInterface() {
                 role: 'assistant',
                 content: '',
                 citations: [],
-                id: crypto.randomUUID() // Temporary ID until backend confirms (or use timestamp)
+                id: crypto.randomUUID(),
+                engine: useSheetRAG ? 'sheet_rag' : 'standard'
             };
 
             setMessages(prev => [...prev, assistantMessage]);
@@ -86,14 +102,20 @@ export function ChatInterface() {
                                     return newMessages;
                                 });
                             }
-                            if (parsed.citations) {
+                            // Handle citations (standard RAG) or sources (Sheet RAG)
+                            if (parsed.citations || parsed.sources) {
                                 setMessages(prev => {
                                     const newMessages = [...prev];
                                     const lastIndex = newMessages.length - 1;
                                     const lastMsg = { ...newMessages[lastIndex] };
-                                    lastMsg.citations = parsed.citations;
+                                    lastMsg.citations = parsed.citations || parsed.sources;
+                                    if (parsed.validation) {
+                                        lastMsg.validation = parsed.validation;
+                                    }
+                                    if (parsed.engine) {
+                                        lastMsg.engine = parsed.engine;
+                                    }
                                     newMessages[lastIndex] = lastMsg;
-                                    // Update ID if provided by backend (future improvement)
                                     return newMessages;
                                 });
                             }
@@ -157,14 +179,32 @@ export function ChatInterface() {
                         <Bot className="w-5 h-5 text-primary" />
                         Research Assistant
                     </h2>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleExport}
-                        title="Export chat as Markdown"
-                    >
-                        <Download className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-4">
+                        {/* RAG Mode Toggle */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                                <Zap className={`w-4 h-4 ${!useSheetRAG ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+                                <span className={`text-xs ${!useSheetRAG ? 'font-medium' : 'text-muted-foreground'}`}>Standard</span>
+                            </div>
+                            <Switch
+                                id="rag-mode"
+                                checked={useSheetRAG}
+                                onCheckedChange={setUseSheetRAG}
+                            />
+                            <div className="flex items-center gap-1">
+                                <Layers className={`w-4 h-4 ${useSheetRAG ? 'text-primary' : 'text-muted-foreground'}`} />
+                                <span className={`text-xs ${useSheetRAG ? 'font-medium' : 'text-muted-foreground'}`}>Sheet RAG</span>
+                            </div>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleExport}
+                            title="Export chat as Markdown"
+                        >
+                            <Download className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
 
                 <ScrollArea className="flex-1 p-4 min-h-0">
@@ -196,19 +236,88 @@ export function ChatInterface() {
 
                                     {msg.citations && msg.citations.length > 0 && (
                                         <div className="mt-4 pt-4 border-t border-border/50">
+                                            {/* Sheet RAG Validation Info */}
+                                            {msg.engine === 'sheet_rag' && msg.validation && (
+                                                <div className="mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <div className="flex items-center gap-2">
+                                                            <Layers className="w-4 h-4 text-primary" />
+                                                            <span className="text-xs font-medium">Sheet RAG Validation</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {/* Confidence Score */}
+                                                            <Badge
+                                                                variant={
+                                                                    (msg.validation.avg_confidence || 0) >= 0.7 ? "success" :
+                                                                        (msg.validation.avg_confidence || 0) >= 0.4 ? "warning" : "destructive"
+                                                                }
+                                                                className="text-[10px]"
+                                                            >
+                                                                Confidence: {((msg.validation.avg_confidence || 0) * 100).toFixed(0)}%
+                                                            </Badge>
+                                                            {/* Layer Coverage */}
+                                                            <Badge variant="outline" className="text-[10px]">
+                                                                {(msg.validation.avg_layer_coverage || 0).toFixed(1)} layers avg
+                                                            </Badge>
+                                                            {/* Validated Count */}
+                                                            <Badge variant="secondary" className="text-[10px]">
+                                                                {msg.validation.count || 0} validated
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <p className="text-xs font-semibold mb-2 flex items-center gap-1">
-                                                <FileText className="w-3 h-3" /> Sources
+                                                <FileText className="w-3 h-3" />
+                                                Sources
+                                                {msg.engine === 'sheet_rag' && (
+                                                    <span className="text-muted-foreground font-normal ml-1">
+                                                        (multi-layer)
+                                                    </span>
+                                                )}
                                             </p>
                                             <div className="grid gap-2">
-                                                {msg.citations.map((cit, cIdx) => {
-                                                    // Use the clean arxiv_id from backend
+                                                {msg.citations.slice(0, 5).map((cit: any, cIdx: number) => {
                                                     const arxivId = cit.metadata?.arxiv_id;
                                                     const arxivUrl = arxivId ? `https://arxiv.org/abs/${arxivId}` : null;
+                                                    const layer = cit.level || cit.metadata?.level;
+                                                    const confidence = cit.validation?.confidence || cit.score || 0;
+                                                    const supportingLayers = cit.validation?.supporting_layers || [];
 
                                                     return (
-                                                        <div key={cIdx} className="text-xs bg-background/50 p-2 rounded border border-border/50">
-                                                            <div className="flex items-start justify-between gap-2">
-                                                                <p className="font-medium text-primary flex-1">{cit.metadata.title}</p>
+                                                        <div key={cIdx} className="text-xs bg-background/50 p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
+                                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    {/* Layer Badge */}
+                                                                    {layer && (
+                                                                        <Badge
+                                                                            variant={
+                                                                                layer === 'summary' ? 'default' :
+                                                                                    layer === 'section' ? 'secondary' :
+                                                                                        layer === 'paragraph' ? 'outline' : 'outline'
+                                                                            }
+                                                                            className="text-[10px] capitalize"
+                                                                        >
+                                                                            {layer}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {/* Confidence Badge */}
+                                                                    {confidence > 0 && (
+                                                                        <Badge
+                                                                            variant={confidence >= 0.7 ? "success" : confidence >= 0.4 ? "warning" : "outline"}
+                                                                            className="text-[10px]"
+                                                                        >
+                                                                            {(confidence * 100).toFixed(0)}% match
+                                                                        </Badge>
+                                                                    )}
+                                                                    {/* Supporting Layers */}
+                                                                    {supportingLayers.length > 0 && (
+                                                                        <span className="text-[10px] text-muted-foreground">
+                                                                            ✓ {supportingLayers.join(', ')}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 {arxivUrl && (
                                                                     <a
                                                                         href={arxivUrl}
@@ -221,10 +330,18 @@ export function ChatInterface() {
                                                                     </a>
                                                                 )}
                                                             </div>
-                                                            <p className="text-muted-foreground mt-1 line-clamp-2">{cit.text}</p>
+                                                            {cit.metadata?.title && (
+                                                                <p className="font-medium text-primary mb-1">{cit.metadata.title}</p>
+                                                            )}
+                                                            <p className="text-muted-foreground line-clamp-2">{cit.text}</p>
                                                         </div>
                                                     );
                                                 })}
+                                                {msg.citations.length > 5 && (
+                                                    <p className="text-xs text-muted-foreground text-center py-1">
+                                                        +{msg.citations.length - 5} more sources
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     )}

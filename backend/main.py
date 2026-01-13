@@ -62,6 +62,10 @@ app.add_middleware(
 # It might take time if loading large index.
 rag = RAGEngine()
 
+# Initialize Sheet RAG Engine (Multi-layer architecture)
+from sheet_rag_engine import SheetRAGEngine
+sheet_rag = SheetRAGEngine()
+
 # Initialize Paper Recommender
 from paper_recommender import PaperRecommender
 paper_recommender = PaperRecommender(rag)
@@ -86,6 +90,13 @@ class FeedbackRequest(BaseModel):
     message_id: str
     feedback: str  # "up" or "down"
     conversation_id: str = "default"
+
+class ChatV2Request(BaseModel):
+    """Request model for Sheet RAG chat endpoint"""
+    message: str
+    conversation_id: str = "default"
+    use_cross_validation: bool = True  # Enable/disable cross-layer validation
+    top_k: int = 5
 
 @app.get("/health")
 def health():
@@ -568,6 +579,221 @@ def get_citation_based_recommendations(arxiv_id: str, top_k: int = 5):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============================================
+# Sheet RAG Endpoints (Multi-layer Architecture)
+# ============================================
+
+@app.post("/chat-v2")
+def chat_sheet_rag(request: ChatV2Request):
+    """
+    Chat endpoint using Sheet RAG with cross-layer validation.
+    
+    This endpoint uses the multi-layer architecture for reduced hallucinations:
+    - Queries 4 layers (sentence, paragraph, section, summary)
+    - Cross-validates results across layers
+    - Returns confidence scores based on layer agreement
+    """
+    try:
+        # Add user message to history
+        chat_history.add_message(request.conversation_id, "user", request.message)
+        
+        # Query Sheet RAG
+        result = sheet_rag.query(
+            query_text=request.message,
+            top_k=request.top_k,
+            use_cross_validation=request.use_cross_validation
+        )
+        
+        # Add assistant response to history
+        chat_history.add_message(request.conversation_id, "assistant", result["response"])
+        
+        return {
+            "response": result["response"],
+            "sources": result["sources"],
+            "validation": result["validation"],
+            "layers_searched": result["layers_searched"],
+            "conversation_id": request.conversation_id,
+            "engine": "sheet_rag"
+        }
+    except Exception as e:
+        print(f"Error in Sheet RAG chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat-v2-stream")
+async def chat_sheet_rag_stream(request: ChatV2Request):
+    """Streaming chat endpoint for Sheet RAG with SSE"""
+    async def generate():
+        try:
+            # Add user message to history
+            chat_history.add_message(request.conversation_id, "user", request.message)
+            
+            # Query Sheet RAG
+            result = sheet_rag.query(
+                query_text=request.message,
+                top_k=request.top_k,
+                use_cross_validation=request.use_cross_validation
+            )
+            
+            response_text = result["response"]
+            
+            # Stream response word by word
+            words = response_text.split()
+            for i, word in enumerate(words):
+                chunk = word + (" " if i < len(words) - 1 else "")
+                yield f"data: {json.dumps({'token': chunk, 'done': False})}\n\n"
+                await asyncio.sleep(0.05)
+            
+            # Add assistant response to history
+            chat_history.add_message(request.conversation_id, "assistant", response_text)
+            
+            # Send final message with metadata
+            yield f"data: {json.dumps({'done': True, 'sources': result['sources'], 'validation': result['validation'], 'conversation_id': request.conversation_id, 'engine': 'sheet_rag'})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+@app.get("/sheet-rag/stats")
+def get_sheet_rag_stats():
+    """Get statistics for all Sheet RAG layers"""
+    try:
+        return sheet_rag.get_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sheet-rag/ingest")
+def ingest_paper_sheet_rag(request: IngestRequest):
+    """
+    Ingest a paper into Sheet RAG with hierarchical chunking.
+    
+    This ingests the paper at all 4 granularity levels:
+    - Sentence level (fine-grained facts)
+    - Paragraph level (contextual information)
+    - Section level (topical grouping)
+    - Summary level (document-level overview)
+    """
+    try:
+        print(f"📊 Ingesting {request.arxiv_id} into Sheet RAG...")
+        
+        # Search for paper metadata
+        search_results = search_papers(request.arxiv_id, max_results=1)
+        paper_metadata = search_results[0] if search_results else None
+        
+        path = download_paper(request.arxiv_id)
+        documents = load_documents(path)
+        
+        # Add to Sheet RAG (multi-layer)
+        sheet_rag.add_documents(documents)
+        
+        # Also add to standard RAG for comparison
+        rag.add_documents(documents)
+        
+        # Add to library
+        if paper_metadata:
+            papers_library.add_paper(
+                arxiv_id=request.arxiv_id,
+                title=paper_metadata.get('title', 'Unknown'),
+                authors=paper_metadata.get('authors', []),
+                summary=paper_metadata.get('summary', ''),
+                pages=len(documents)
+            )
+        
+        stats = sheet_rag.get_stats()
+        
+        return {
+            "status": "success",
+            "message": f"Ingested {request.arxiv_id} into Sheet RAG",
+            "pages": len(documents),
+            "sheet_rag_stats": stats
+        }
+    except Exception as e:
+        print(f"Error ingesting into Sheet RAG: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sheet-rag/ingest-batch")
+def ingest_batch_sheet_rag(request: BatchIngestRequest):
+    """Ingest multiple papers into Sheet RAG"""
+    try:
+        results = []
+        total_pages = 0
+        
+        for arxiv_id in request.arxiv_ids:
+            print(f"📊 Ingesting {arxiv_id} into Sheet RAG...")
+            
+            search_results = search_papers(arxiv_id, max_results=1)
+            paper_metadata = search_results[0] if search_results else None
+            
+            path = download_paper(arxiv_id)
+            documents = load_documents(path)
+            
+            # Add to Sheet RAG
+            sheet_rag.add_documents(documents)
+            
+            # Also add to standard RAG
+            rag.add_documents(documents)
+            
+            total_pages += len(documents)
+            results.append({"arxiv_id": arxiv_id, "pages": len(documents)})
+            
+            # Add to library
+            if paper_metadata:
+                papers_library.add_paper(
+                    arxiv_id=arxiv_id,
+                    title=paper_metadata.get('title', 'Unknown'),
+                    authors=paper_metadata.get('authors', []),
+                    summary=paper_metadata.get('summary', ''),
+                    pages=len(documents)
+                )
+        
+        return {
+            "status": "success",
+            "message": f"Ingested {len(request.arxiv_ids)} papers into Sheet RAG",
+            "total_pages": total_pages,
+            "results": results,
+            "sheet_rag_stats": sheet_rag.get_stats()
+        }
+    except Exception as e:
+        print(f"Error batch ingesting into Sheet RAG: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/sheet-rag/clear")
+def clear_sheet_rag():
+    """Clear all data from Sheet RAG index"""
+    try:
+        sheet_rag.clear_all()
+        return {"status": "success", "message": "Sheet RAG index cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/sheet-rag/clear/{layer}")
+def clear_sheet_rag_layer(layer: str):
+    """Clear a specific layer from Sheet RAG"""
+    try:
+        sheet_rag.clear_layer(layer)
+        return {"status": "success", "message": f"Sheet RAG {layer} layer cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/evaluate")
+def run_rag_evaluation(custom_queries: list[str] = None):
+    """
+    Run evaluation comparing Standard RAG vs Sheet RAG.
+    
+    Uses predefined hallucination-focused test queries by default,
+    or accepts custom queries.
+    """
+    try:
+        from rag_evaluator import run_evaluation
+        
+        report = run_evaluation(rag, sheet_rag, custom_queries)
+        return report
+    except Exception as e:
+        print(f"Error running evaluation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8002)
+
+

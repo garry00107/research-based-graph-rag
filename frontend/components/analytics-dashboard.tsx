@@ -90,7 +90,8 @@ export function AnalyticsDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold">
                             {(() => {
-                                const errors = Object.entries(data.status_codes)
+                                const statusCodes = data.status_codes || {};
+                                const errors = Object.entries(statusCodes)
                                     .filter(([code]) => code.startsWith('4') || code.startsWith('5'))
                                     .reduce((acc, [, count]) => acc + count, 0);
                                 const rate = data.total_requests > 0 ? (errors / data.total_requests) * 100 : 0;
@@ -109,7 +110,7 @@ export function AnalyticsDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
-                            {Object.entries(data.endpoints)
+                            {Object.entries(data.endpoints || {})
                                 .sort(([, a], [, b]) => b - a)
                                 .slice(0, 5)
                                 .map(([endpoint, count]) => (
@@ -128,14 +129,14 @@ export function AnalyticsDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
-                            {Object.entries(data.status_codes)
+                            {Object.entries(data.status_codes || {})
                                 .sort(([, a], [, b]) => b - a)
                                 .map(([code, count]) => (
                                     <div key={code} className="flex justify-between items-center text-sm">
                                         <span className={`px-2 py-1 rounded font-mono ${code.startsWith('2') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                                code.startsWith('4') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                    code.startsWith('5') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                        'bg-muted'
+                                            code.startsWith('4') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                code.startsWith('5') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                                    'bg-muted'
                                             }`}>
                                             {code}
                                         </span>

@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Search, CheckCircle, AlertCircle, Loader2, BarChart3, FileText } from 'lucide-react';
+import { Settings, Search, CheckCircle, AlertCircle, Loader2, BarChart3, FileText, Layers, Zap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalyticsDashboard } from '@/components/analytics-dashboard';
+import { Switch } from '@/components/ui/switch';
 
 export function AdminPanel() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -21,6 +22,7 @@ export function AdminPanel() {
     const [ingesting, setIngesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [ingestSuccessMsg, setIngestSuccessMsg] = useState<string | null>(null);
+    const [useSheetRAG, setUseSheetRAG] = useState(true); // Default to Sheet RAG
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
@@ -57,8 +59,14 @@ export function AdminPanel() {
         setError(null);
         setIngestSuccessMsg(null);
         try {
-            await api.ingestBatch(selectedPapers);
-            setIngestSuccessMsg(`Successfully ingested ${selectedPapers.length} paper(s)!`);
+            // Use Sheet RAG or Standard RAG based on toggle
+            if (useSheetRAG) {
+                await api.sheetRagIngestBatch(selectedPapers);
+                setIngestSuccessMsg(`Successfully ingested ${selectedPapers.length} paper(s) into Sheet RAG (4 layers)!`);
+            } else {
+                await api.ingestBatch(selectedPapers);
+                setIngestSuccessMsg(`Successfully ingested ${selectedPapers.length} paper(s) into Standard RAG!`);
+            }
             setSelectedPapers([]);
         } catch (error: any) {
             console.error('Error ingesting:', error);
@@ -143,6 +151,28 @@ export function AdminPanel() {
                                     <CheckCircle className="w-3 h-3" /> Found {searchResults.length} papers
                                 </div>
                             )}
+
+                            {/* RAG Mode Toggle */}
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">Ingestion Mode:</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        <Zap className={`w-4 h-4 ${!useSheetRAG ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+                                        <span className={`text-xs ${!useSheetRAG ? 'font-medium' : 'text-muted-foreground'}`}>Standard</span>
+                                    </div>
+                                    <Switch
+                                        id="ingest-mode"
+                                        checked={useSheetRAG}
+                                        onCheckedChange={setUseSheetRAG}
+                                    />
+                                    <div className="flex items-center gap-1">
+                                        <Layers className={`w-4 h-4 ${useSheetRAG ? 'text-primary' : 'text-muted-foreground'}`} />
+                                        <span className={`text-xs ${useSheetRAG ? 'font-medium' : 'text-muted-foreground'}`}>Sheet RAG</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {searchResults.length > 0 && (

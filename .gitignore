@@ -1,36 +1,25 @@
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+*.pyc
 venv/
-env/
-ENV/
-*.egg-info/
-dist/
-build/
-
-# Environment variables
 .env
-.env.local
-.env.*.local
+
+# Node
+node_modules/
+.next/
+
+# Data (don't commit vector databases)
+*.sqlite3
+chroma_db/
+data/papers/
+dump.rdb
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Project specific
-backend/storage/
-backend/data/
-*.pdf
-
-# Logs
-*.log
+backend/chroma_db/
+dump.rdb

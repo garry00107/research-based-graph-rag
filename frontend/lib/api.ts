@@ -110,5 +110,68 @@ export const api = {
         document.body.appendChild(link);
         link.click();
         link.remove();
+    },
+
+    // Sheet RAG API
+    chatV2: async (message: string, options: { conversationId?: string; useCrossValidation?: boolean; topK?: number } = {}) => {
+        return axios.post<SheetRAGChatResponse>(`${API_URL}/chat-v2`, {
+            message,
+            conversation_id: options.conversationId || 'default',
+            use_cross_validation: options.useCrossValidation ?? true,
+            top_k: options.topK || 5
+        });
+    },
+
+    sheetRagIngest: async (arxivId: string) => {
+        return axios.post(`${API_URL}/sheet-rag/ingest`, { arxiv_id: arxivId });
+    },
+
+    sheetRagIngestBatch: async (arxivIds: string[]) => {
+        return axios.post(`${API_URL}/sheet-rag/ingest-batch`, { arxiv_ids: arxivIds });
+    },
+
+    sheetRagStats: async () => {
+        return axios.get<SheetRAGStats>(`${API_URL}/sheet-rag/stats`);
+    },
+
+    runEvaluation: async (customQueries?: string[]) => {
+        return axios.post(`${API_URL}/evaluate`, customQueries);
     }
 };
+
+// Sheet RAG Types
+export interface SheetRAGSource {
+    text: string;
+    level: string;
+    score: number;
+    chunk_id: string;
+    metadata: any;
+    validation?: {
+        confidence: number;
+        layer_coverage: number;
+        supporting_layers: string[];
+    };
+}
+
+export interface SheetRAGValidation {
+    count: number;
+    avg_confidence: number;
+    avg_layer_coverage: number;
+    fully_validated: number;
+}
+
+export interface SheetRAGChatResponse {
+    response: string;
+    sources: SheetRAGSource[];
+    validation: SheetRAGValidation;
+    layers_searched: Record<string, number>;
+    conversation_id: string;
+    engine: string;
+}
+
+export interface SheetRAGStats {
+    layers: Record<string, { chunk_count: number; collection_name: string }>;
+    total_chunks: number;
+    persist_dir: string;
+}
+
