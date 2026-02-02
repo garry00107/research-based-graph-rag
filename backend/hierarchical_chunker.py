@@ -214,6 +214,10 @@ class HierarchicalChunker:
         sections_data = self._split_into_sections(text)
         section_chunks = []
         for idx, section in enumerate(sections_data):
+            # Skip References and Bibliography sections
+            if re.match(r'^(References|Bibliography|Citations|Acknowledgments)', section["title"], re.IGNORECASE):
+                continue
+                
             section_text = f"{section['title']}\n\n{section['content']}"
             chunk = ChunkNode(
                 id=self._generate_id(section_text, "section", idx),

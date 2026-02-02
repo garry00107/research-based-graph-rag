@@ -87,14 +87,23 @@ def search_papers(query: str, max_results: int = 10, category: str = None, year:
     Search ArXiv for papers matching the query with optional filters.
     Returns a list of paper metadata.
     """
-    search_query = query
+    # If the query is long (likely a title) and doesn't contain field prefixes, try searching in title specifically
+    if len(query.split()) > 3 and ":" not in query:
+        # Construct a query that boosts title matches but falls back to all fields
+        # This syntax depends on how arxiv library passes it to the API. 
+        # Standard API supports "ti:title".
+        # We will try a simple search first, but if max_results is low, we might miss it.
+        # Let's try to be smart: search for title specifically if it seems like a specific paper.
+        search_query = f'ti:"{query}" OR abs:"{query}" OR "{query}"'
+    else:
+        search_query = query
     
     # Add filters to query
     if category and category != "all":
-        search_query += f" AND cat:{category}"
+        search_query = f"({search_query}) AND cat:{category}"
     
     if year:
-        search_query += f" AND submittedDate:[{year}01010000 TO {year}12312359]"
+        search_query = f"({search_query}) AND submittedDate:[{year}01010000 TO {year}12312359]"
 
     client = arxiv.Client()
     search = arxiv.Search(

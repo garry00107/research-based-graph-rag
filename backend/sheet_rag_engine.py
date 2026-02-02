@@ -308,16 +308,20 @@ class SheetRAGEngine:
         
         context = "\n\n".join(context_parts)
         
-        prompt = f"""Based on the following validated research paper excerpts, answer the question.
-Only use information that appears in the provided context. If the context doesn't contain 
-enough information to fully answer the question, say so.
+        prompt = f"""Based on the following validated research paper excerpts, provide a **detailed and comprehensive** answer to the question.
+        
+Instructions:
+1. **Be Detailed**: Do not give short summaries. Explain concepts in depth using the provided context.
+2. **Cite Sources**: When using information from a specific source, cite it using its ID (e.g., "[Source 1]", "[Source 2]").
+3. **No Hallucinations**: Only use information that appears in the provided context. If the context doesn't contain enough information to fully answer the question, say so clearly.
+4. **Admit Uncertainty**: If different sources contradict each other or if the answer is unclear, explain the ambiguity.
 
 Context:
 {context}
 
 Question: {query_text}
 
-Answer:"""
+Detailed Answer:"""
         
         try:
             response = self.llm.complete(prompt)
@@ -343,7 +347,29 @@ Answer:"""
                     "supporting_layers": list(result.supporting_chunks.keys())
                 }
         
+        # Deduplicate chunks based on text similarity or parent/child relationships
+        seen_texts = set()
+        unique_sources = []
+        
         for chunk in chunks:
+            # Skip if very similar text already exists (simple deduplication)
+            # For better dedupe, we could check if one chunk is contained in another
+            is_duplicate = False
+            for seen in seen_texts:
+                # Check for significant overlap or containment
+                if chunk.text in seen or seen in chunk.text:
+                    is_duplicate = True
+                    break
+                # Check fuzzy overlap (start/end)
+                if len(chunk.text) > 50 and chunk.text[:50] in seen:
+                    is_duplicate = True
+                    break
+            
+            if is_duplicate:
+                continue
+                
+            seen_texts.add(chunk.text)
+            
             # Build metadata including level for UI
             metadata = {
                 k: v for k, v in chunk.metadata.items()
@@ -363,9 +389,9 @@ Answer:"""
             if chunk.chunk_id in validation_map:
                 source["validation"] = validation_map[chunk.chunk_id]
             
-            sources.append(source)
-        
-        return sources
+            unique_sources.append(source)
+            
+        return unique_sources
     
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics for all layers"""
