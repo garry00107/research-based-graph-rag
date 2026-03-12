@@ -308,20 +308,21 @@ class SheetRAGEngine:
         
         context = "\n\n".join(context_parts)
         
-        prompt = f"""Based on the following validated research paper excerpts, provide a **detailed and comprehensive** answer to the question.
-        
-Instructions:
-1. **Be Detailed**: Do not give short summaries. Explain concepts in depth using the provided context.
-2. **Cite Sources**: When using information from a specific source, cite it using its ID (e.g., "[Source 1]", "[Source 2]").
-3. **No Hallucinations**: Only use information that appears in the provided context. If the context doesn't contain enough information to fully answer the question, say so clearly.
-4. **Admit Uncertainty**: If different sources contradict each other or if the answer is unclear, explain the ambiguity.
+        prompt = f"""You are a research paper assistant. Answer the question using the provided context excerpts below.
+
+RULES:
+1. **Be detailed and comprehensive**: When the context contains relevant information, provide a thorough, in-depth answer. Explain all relevant details, relationships, and specifics found in the excerpts. Do NOT give short or minimal answers.
+2. **Cite Sources**: Reference excerpts using their IDs (e.g., "[Source 1]", "[Source 2]").
+3. **STRICT: No outside knowledge**: ONLY use information explicitly stated in the context below. Do NOT use your own knowledge, training data, or general information to supplement the answer.
+4. **If the context does not contain the answer**: Respond with "The ingested research papers do not contain information about this topic. Please try a different question related to the papers in the knowledge base." and STOP. Do NOT attempt to answer from general knowledge.
+5. **Admit uncertainty** if sources contradict each other or the answer is ambiguous.
 
 Context:
 {context}
 
 Question: {query_text}
 
-Detailed Answer:"""
+Detailed Answer (using ONLY the context above):"""
         
         try:
             response = self.llm.complete(prompt)
@@ -347,28 +348,38 @@ Detailed Answer:"""
                     "supporting_layers": list(result.supporting_chunks.keys())
                 }
         
-        # Deduplicate chunks based on text similarity or parent/child relationships
-        seen_texts = set()
+        # Sort chunks by score (highest first) so the most relevant survive deduplication
+        sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
+        
+        # Deduplicate chunks — keep diverse sources
+        seen_texts = []
         unique_sources = []
         
-        for chunk in chunks:
-            # Skip if very similar text already exists (simple deduplication)
-            # For better dedupe, we could check if one chunk is contained in another
+        for chunk in sorted_chunks:
+            # Skip very short or boilerplate-like chunks
+            text_lower = chunk.text.lower().strip()
+            if len(text_lower) < 30:
+                continue
+            
+            # Check for duplicate/overlapping content
             is_duplicate = False
             for seen in seen_texts:
-                # Check for significant overlap or containment
-                if chunk.text in seen or seen in chunk.text:
-                    is_duplicate = True
-                    break
-                # Check fuzzy overlap (start/end)
-                if len(chunk.text) > 50 and chunk.text[:50] in seen:
-                    is_duplicate = True
-                    break
+                # Only flag as duplicate if there's very significant overlap
+                shorter = min(len(chunk.text), len(seen))
+                if shorter > 0:
+                    # Check containment
+                    if chunk.text in seen or seen in chunk.text:
+                        is_duplicate = True
+                        break
+                    # Check if first 100 chars match (less aggressive than 50)
+                    if len(chunk.text) > 100 and chunk.text[:100] in seen:
+                        is_duplicate = True
+                        break
             
             if is_duplicate:
                 continue
                 
-            seen_texts.add(chunk.text)
+            seen_texts.append(chunk.text)
             
             # Build metadata including level for UI
             metadata = {
@@ -390,6 +401,10 @@ Detailed Answer:"""
                 source["validation"] = validation_map[chunk.chunk_id]
             
             unique_sources.append(source)
+            
+            # Limit to 5 diverse sources
+            if len(unique_sources) >= 5:
+                break
             
         return unique_sources
     
