@@ -13,10 +13,10 @@ export default function Home() {
       </div>
       <div className="w-full max-w-4xl mb-8 text-center">
         <h1 className="text-4xl font-bold tracking-tight mb-2 bg-gradient-to-r from-green-500 to-emerald-700 bg-clip-text text-transparent">
-          Research Paper Assistant
+          Sheet RAG
         </h1>
         <p className="text-muted-foreground">
-          AI-powered research assistant using graph-based retrieval for ArXiv papers.
+          Reducing Hallucinations with Multi-Layer Cross-Validation
         </p>
       </div>
       <div className="w-full max-w-7xl flex-1">

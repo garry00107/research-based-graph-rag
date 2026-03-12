@@ -214,11 +214,20 @@ class HierarchicalChunker:
         sections_data = self._split_into_sections(text)
         section_chunks = []
         for idx, section in enumerate(sections_data):
-            # Skip References and Bibliography sections
+            # Skip References chunks based on Title
             if re.match(r'^(References|Bibliography|Citations|Acknowledgments)', section["title"], re.IGNORECASE):
                 continue
-                
+
             section_text = f"{section['title']}\n\n{section['content']}"
+            
+            # Skip chunks that look like Reference lists based on content
+            # Count occurrence of reference patterns like [1], [2], etc.
+            ref_pattern = r'\[\d+\]'
+            ref_count = len(re.findall(ref_pattern, section["content"]))
+            # If we see many citations and short lines, it's likely a bibliography
+            if ref_count > 5 and len(section["content"]) / (ref_count + 1) < 200:
+                continue
+
             chunk = ChunkNode(
                 id=self._generate_id(section_text, "section", idx),
                 text=section_text,
